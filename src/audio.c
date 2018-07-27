@@ -1327,6 +1327,20 @@ void LoadMusicStreamError(MusicData **music, const char *fileName, const char *f
     free(*music);
     *music = NULL;
 
+    if ((*music)->ctxType == MUSIC_AUDIO_OGG) stb_vorbis_close((*music)->ctxOgg);
+#if defined(SUPPORT_FILEFORMAT_FLAC)
+    else if ((*music)->ctxType == MUSIC_AUDIO_FLAC) drflac_free((*music)->ctxFlac);
+#endif
+#if defined(SUPPORT_FILEFORMAT_MP3)
+    else if ((*music)->ctxType == MUSIC_AUDIO_MP3) drmp3_uninit(&(*music)->ctxMp3);
+#endif
+#if defined(SUPPORT_FILEFORMAT_XM)
+    else if ((*music)->ctxType == MUSIC_MODULE_XM) jar_xm_free_context((*music)->ctxXm);
+#endif
+#if defined(SUPPORT_FILEFORMAT_MOD)
+    else if ((*music)->ctxType == MUSIC_MODULE_MOD) jar_mod_unload(&(*music)->ctxMod);
+#endif
+
     if (format)
         TraceLog(LOG_WARNING, "[%s] %s audio file could not be opened", fileName, format);
     else
