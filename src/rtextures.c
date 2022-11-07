@@ -21,6 +21,7 @@
 *   #define SUPPORT_FILEFORMAT_KTX
 *   #define SUPPORT_FILEFORMAT_PVR
 *   #define SUPPORT_FILEFORMAT_ASTC
+*   #define SUPPORT_FILEFORMAT_FF
 *       Select desired fileformats to be supported for image data loading. Some of those formats are
 *       supported by default, to remove support, just comment unrequired #define in this module
 *
@@ -195,6 +196,9 @@ static Image LoadPVR(const unsigned char *fileData, unsigned int fileSize);   //
 #endif
 #if defined(SUPPORT_FILEFORMAT_ASTC)
 static Image LoadASTC(const unsigned char *fileData, unsigned int fileSize);  // Load ASTC file data
+#endif
+#if defined(SUPPORT_FILEFORMAT_FF)
+static Image LoadFF(const unsigned char *fileData, unsigned int fileSize);  // Load FF file data
 #endif
 
 static Vector4 *LoadImageDataNormalized(Image image);       // Load pixel data from image as Vector4 array (float normalized)
@@ -398,6 +402,9 @@ Image LoadImageFromMemory(const char *fileType, const unsigned char *fileData, i
 #endif
 #if defined(SUPPORT_FILEFORMAT_ASTC)
     else if (strcmp(fileType, ".astc") == 0) image = LoadASTC(fileData, dataSize);
+#endif
+#if defined(SUPPORT_FILEFORMAT_FF)
+    else if (strcmp(fileType, ".ff") == 0) image = LoadFF(fileData, dataSize);
 #endif
     else TRACELOG(LOG_WARNING, "IMAGE: Data format not supported");
 
@@ -4736,6 +4743,54 @@ static Image LoadASTC(const unsigned char *fileData, unsigned int fileSize)
                 else if (bpp == 2) image.format = PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA;
             }
             else TRACELOG(LOG_WARNING, "IMAGE: ASTC block size configuration not supported");
+        }
+    }
+
+    return image;
+}
+#endif
+
+#if defined(SUPPORT_FILEFORMAT_FF)
+// Load FF image data
+static Image LoadFF(const unsigned char *fileData, unsigned int fileSize)
+{
+    unsigned char *fileDataPtr = (unsigned char *)fileData;
+
+    Image image = { 0 };
+
+    if (fileDataPtr != NULL)
+    {
+        if (memcmp(fileDataPtr, "farbfeld", 8) != 0)
+        {
+            TRACELOG(LOG_WARNING, "IMAGE: Invalid farbfeld header");
+        } else {
+            image.width = ((uint32_t*)fileDataPtr)[2];
+            image.height = ((uint32_t*)fileDataPtr)[3];
+            // big endian
+            image.width = ((image.width>>24)&0xff) | ((image.width<<8)&0xff0000) | ((image.width>>8)&0xff00) | ((image.width<<24)&0xff000000);
+            image.height = ((image.height>>24)&0xff) | ((image.height<<8)&0xff0000) | ((image.height>>8)&0xff00) | ((image.height<<24)&0xff000000);
+
+            TRACELOGD("IMAGE: FF file data info:");
+            TRACELOGD("    > Image width:  %i", image.width);
+            TRACELOGD("    > Image height: %i", image.height);
+
+            if (image.width <= 0 || image.height <= 0)
+            {
+                TRACELOG(LOG_WARNING, "IMAGE: invalid image size");
+            } else {
+                fileDataPtr += 15;
+                unsigned int size = fileSize -15;
+                image.data = RL_MALLOC(size); //todo
+                memcpy(image.data, fileDataPtr, size);
+                image.mipmaps = 1;
+                //image.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+                //image.format = PIXELFORMAT_UNCOMPRESSED_R5G5B5A1;
+                //image.format = PIXELFORMAT_UNCOMPRESSED_R4G4B4A4;
+                //image.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8;
+                //image.format = PIXELFORMAT_UNCOMPRESSED_R32;
+                //image.format = PIXELFORMAT_UNCOMPRESSED_R32G32B32;
+                //image.format = PIXELFORMAT_UNCOMPRESSED_R32G32B32A32;
+            }
         }
     }
 
